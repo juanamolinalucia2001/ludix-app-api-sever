@@ -44,7 +44,6 @@ async def create_quiz(
     Factory Pattern: Creates quiz and questions based on input data.
     """
     
-    # Get teacher's first class (simplified for MVP)
     from models.Quiz import Class
     teacher_class = db.query(Class).filter(Class.teacher_id == current_user.id).first()
     
@@ -54,13 +53,11 @@ async def create_quiz(
             detail="You must create a class before creating quizzes"
         )
     
-    # Validate difficulty
     try:
         difficulty = DifficultyLevel(quiz_data.difficulty)
     except ValueError:
         difficulty = DifficultyLevel.EASY
     
-    # Create quiz
     new_quiz = Quiz(
         title=quiz_data.title,
         description=quiz_data.description,
@@ -74,22 +71,19 @@ async def create_quiz(
     db.add(new_quiz)
     db.flush()  # Get the quiz ID
     
-    # Create questions
     for idx, question_data in enumerate(quiz_data.questions):
-        # Validate question type
         try:
             q_type = QuestionType(question_data.question_type)
         except ValueError:
             q_type = QuestionType.MULTIPLE_CHOICE
         
-        # Validate difficulty
         try:
             q_difficulty = DifficultyLevel(question_data.difficulty)
         except ValueError:
             q_difficulty = DifficultyLevel.EASY
         
         question = Question(
-            quiz_id=new_quiz.id,
+            quiz_id=str(new_quiz.id),  # <-- ID ahora como string
             question_text=question_data.question_text,
             question_type=q_type,
             options=question_data.options,
@@ -115,20 +109,15 @@ async def get_quizzes(
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get all quizzes created by the teacher"""
-    
     quizzes = db.query(Quiz).filter(Quiz.creator_id == current_user.id).all()
-    
     return [quiz.to_dict(include_questions=False) for quiz in quizzes]
 
 @router.get("/quizzes/{quiz_id}", response_model=dict)
 async def get_quiz(
-    quiz_id: int,
+    quiz_id: str,  # <-- ID como string
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get a specific quiz with questions"""
-    
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     
     if not quiz:
@@ -137,7 +126,6 @@ async def get_quiz(
             detail="Quiz not found"
         )
     
-    # Authorization check
     if current_user.is_teacher and quiz.creator_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -154,12 +142,10 @@ async def get_quiz(
 
 @router.put("/quizzes/{quiz_id}/publish")
 async def publish_quiz(
-    quiz_id: int,
+    quiz_id: str,  # <-- ID como string
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Publish a quiz to make it available to students"""
-    
     quiz = db.query(Quiz).filter(
         Quiz.id == quiz_id,
         Quiz.creator_id == current_user.id
@@ -185,12 +171,10 @@ async def publish_quiz(
 
 @router.delete("/quizzes/{quiz_id}")
 async def delete_quiz(
-    quiz_id: int,
+    quiz_id: str,  # <-- ID como string
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Delete a quiz and all its questions"""
-    
     quiz = db.query(Quiz).filter(
         Quiz.id == quiz_id,
         Quiz.creator_id == current_user.id
@@ -202,7 +186,6 @@ async def delete_quiz(
             detail="Quiz not found or access denied"
         )
     
-    # Check if quiz has been attempted by students
     from models.GameSession import GameSession
     session_count = db.query(GameSession).filter(GameSession.quiz_id == quiz_id).count()
     
@@ -223,11 +206,6 @@ async def create_text_content(
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Create text content (for future reading comprehension features)"""
-    
-    # This is a placeholder for text content creation
-    # In a full implementation, you'd have a TextContent model
-    
     return {
         "message": "Text content creation will be implemented in the next iteration",
         "data": text_data.dict()
@@ -237,11 +215,6 @@ async def create_text_content(
 async def upload_content(
     current_user: User = Depends(get_current_teacher),
 ):
-    """Upload files (images, audio) for quiz content"""
-    
-    # This is a placeholder for file upload functionality
-    # In a full implementation, you'd handle file uploads here
-    
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="File upload will be implemented in the next iteration"

@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum, JSON, Float
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Enum, JSON, Float, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database.connection import Base
+from sqlalchemy.dialects.postgresql import UUID
 import enum
+import uuid
 from datetime import datetime
 from typing import Dict, Any
 
@@ -19,9 +21,9 @@ class GameSession(Base):
     """
     __tablename__ = "game_sessions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    quiz_id = Column(UUID(as_uuid=True), ForeignKey("quizzes.id"), nullable=False)
     
     # Session tracking
     status = Column(Enum(SessionStatus), default=SessionStatus.IN_PROGRESS)
@@ -75,9 +77,9 @@ class GameSession(Base):
     def to_dict(self, include_answers: bool = False):
         """Convert session to dictionary for API responses"""
         data = {
-            "id": self.id,
-            "student_id": self.student_id,
-            "quiz_id": self.quiz_id,
+            "id": str(self.id),
+            "student_id": str(self.student_id),
+            "quiz_id": str(self.quiz_id),
             "status": self.status.value,
             "current_question": self.current_question,
             "score": self.score,
@@ -104,9 +106,9 @@ class Answer(Base):
     """
     __tablename__ = "answers"
 
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("game_sessions.id"), nullable=False)
+    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), nullable=False)
     
     # Answer data
     selected_answer = Column(Integer, nullable=False)  # Index of selected option
@@ -131,9 +133,9 @@ class Answer(Base):
     def to_dict(self):
         """Convert answer to dictionary for API responses"""
         return {
-            "id": self.id,
-            "session_id": self.session_id,
-            "question_id": self.question_id,
+            "id": str(self.id),
+            "session_id": str(self.session_id),
+            "question_id": str(self.question_id),
             "selected_answer": self.selected_answer,
             "is_correct": self.is_correct,
             "time_taken_seconds": self.time_taken_seconds,
@@ -150,9 +152,9 @@ class ProgressMetrics(Base):
     """
     __tablename__ = "progress_metrics"
 
-    id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False)
     
     # Aggregated metrics
     total_games_played = Column(Integer, default=0)
@@ -167,9 +169,9 @@ class ProgressMetrics(Base):
     longest_streak = Column(Integer, default=0)
     
     # Learning analytics
-    preferred_topics = Column(JSON, nullable=True)  # Array of topics with scores
-    common_mistakes = Column(JSON, nullable=True)  # Array of frequently missed questions
-    improvement_areas = Column(JSON, nullable=True)  # Suggested areas for improvement
+    preferred_topics = Column(JSON, nullable=True)
+    common_mistakes = Column(JSON, nullable=True)
+    improvement_areas = Column(JSON, nullable=True)
     
     # Engagement metrics
     last_activity = Column(DateTime(timezone=True), nullable=True)
@@ -189,9 +191,9 @@ class ProgressMetrics(Base):
     def to_dict(self):
         """Convert metrics to dictionary for API responses"""
         return {
-            "id": self.id,
-            "student_id": self.student_id,
-            "class_id": self.class_id,
+            "id": str(self.id),
+            "student_id": str(self.student_id),
+            "class_id": str(self.class_id),
             "total_games_played": self.total_games_played,
             "total_questions_answered": self.total_questions_answered,
             "total_correct_answers": self.total_correct_answers,

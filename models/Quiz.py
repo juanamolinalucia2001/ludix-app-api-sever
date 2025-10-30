@@ -3,6 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database.connection import Base
 import enum
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -20,10 +22,10 @@ class Class(Base):
     """Class/Classroom model for organizing students and content"""
     __tablename__ = "classes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     class_code = Column(String(10), unique=True, nullable=False)  # For student enrollment
     is_active = Column(Boolean, default=True)
     
@@ -49,11 +51,11 @@ class Quiz(Base):
     """
     __tablename__ = "quizzes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    creator_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False)
     
     # Quiz settings
     time_limit = Column(Integer, nullable=True)  # In seconds
@@ -87,11 +89,11 @@ class Quiz(Base):
     def to_dict(self, include_questions: bool = False):
         """Convert quiz to dictionary for API responses"""
         data = {
-            "id": self.id,
+            "id": str(self.id),
             "title": self.title,
             "description": self.description,
-            "creator_id": self.creator_id,
-            "class_id": self.class_id,
+            "creator_id": str(self.creator_id),
+            "class_id": str(self.class_id),
             "time_limit": self.time_limit,
             "difficulty": self.difficulty.value,
             "is_active": self.is_active,
@@ -116,8 +118,8 @@ class Question(Base):
     """
     __tablename__ = "questions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    quiz_id = Column(UUID(as_uuid=True), ForeignKey("quizzes.id"), nullable=False)
     question_text = Column(Text, nullable=False)
     question_type = Column(Enum(QuestionType), default=QuestionType.MULTIPLE_CHOICE)
     
@@ -150,8 +152,8 @@ class Question(Base):
     def to_dict(self):
         """Convert question to dictionary for API responses"""
         return {
-            "id": self.id,
-            "quiz_id": self.quiz_id,
+            "id": str(self.id),
+            "quiz_id": str(self.quiz_id),
             "question_text": self.question_text,
             "question_type": self.question_type.value,
             "options": self.options or [],
@@ -164,3 +166,4 @@ class Question(Base):
             "time_limit": self.time_limit,
             "order_index": self.order_index
         }
+    

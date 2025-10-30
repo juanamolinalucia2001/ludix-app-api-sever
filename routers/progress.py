@@ -14,7 +14,7 @@ router = APIRouter()
 
 # Pydantic models
 class StudentProgressResponse(BaseModel):
-    student_id: int
+    student_id: str
     student_name: str
     total_games_played: int
     average_score: float
@@ -23,7 +23,7 @@ class StudentProgressResponse(BaseModel):
     recent_sessions: List[dict]
 
 class ClassProgressResponse(BaseModel):
-    class_id: int
+    class_id: str
     class_name: str
     total_students: int
     active_students: int
@@ -33,7 +33,7 @@ class ClassProgressResponse(BaseModel):
 
 @router.get("/student/{student_id}", response_model=StudentProgressResponse)
 async def get_student_progress(
-    student_id: int,
+    student_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -43,7 +43,7 @@ async def get_student_progress(
     """
     
     # Authorization check
-    if current_user.is_student and current_user.id != student_id:
+    if current_user.is_student and str(current_user.id) != student_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied"
@@ -66,7 +66,7 @@ async def get_student_progress(
             )
         
         student_class = db.query(Class).filter(Class.id == student.class_id).first()
-        if not student_class or student_class.teacher_id != current_user.id:
+        if not student_class or str(student_class.teacher_id) != str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Student is not in your class"
@@ -100,7 +100,7 @@ async def get_student_progress(
     last_activity = sessions[0].created_at.isoformat() if sessions else None
     
     return StudentProgressResponse(
-        student_id=student.id,
+        student_id=str(student.id),
         student_name=student.name,
         total_games_played=total_games,
         average_score=round(average_score, 2),
@@ -111,7 +111,7 @@ async def get_student_progress(
 
 @router.get("/class/{class_id}", response_model=ClassProgressResponse)
 async def get_class_progress(
-    class_id: int,
+    class_id: str,
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
@@ -170,7 +170,7 @@ async def get_class_progress(
             total_time = 0.0
         
         student_data = {
-            "student_id": student.id,
+            "student_id": str(student.id),
             "student_name": student.name,
             "games_played": len(sessions),
             "games_completed": len(completed_sessions),
@@ -186,7 +186,7 @@ async def get_class_progress(
     average_class_score = sum(class_scores) / len(class_scores) if class_scores else 0.0
     
     return ClassProgressResponse(
-        class_id=class_obj.id,
+        class_id=str(class_obj.id),
         class_name=class_obj.name,
         total_students=total_students,
         active_students=active_students,
@@ -207,7 +207,7 @@ async def get_progress_metrics(
     
     if current_user.is_student:
         # Get student's personal metrics
-        return await get_student_progress(current_user.id, current_user, db)
+        return await get_student_progress(str(current_user.id), current_user, db)
     
     else:
         # Get teacher's class metrics
@@ -223,13 +223,13 @@ async def get_progress_metrics(
         all_metrics = []
         for class_obj in classes:
             try:
-                class_metrics = await get_class_progress(class_obj.id, current_user, db)
+                class_metrics = await get_class_progress(str(class_obj.id), current_user, db)
                 all_metrics.append(class_metrics.dict())
             except HTTPException:
                 continue
         
         return {
-            "teacher_id": current_user.id,
+            "teacher_id": str(current_user.id),
             "teacher_name": current_user.name,
             "total_classes": len(classes),
             "classes": all_metrics
@@ -237,7 +237,7 @@ async def get_progress_metrics(
 
 @router.get("/analytics/quiz/{quiz_id}")
 async def get_quiz_analytics(
-    quiz_id: int,
+    quiz_id: str,
     current_user: User = Depends(get_current_teacher),
     db: Session = Depends(get_db)
 ):
@@ -272,7 +272,7 @@ async def get_quiz_analytics(
     completed_sessions = [s for s in sessions if s.status == SessionStatus.COMPLETED]
     
     analytics = {
-        "quiz_id": quiz_id,
+        "quiz_id": str(quiz_id),
         "quiz_title": quiz.title,
         "total_attempts": len(sessions),
         "completed_attempts": len(completed_sessions),
@@ -296,7 +296,7 @@ async def get_quiz_analytics(
             avg_time = sum(a.time_taken_seconds for a in answers) / len(answers)
             
             question_stats = {
-                "question_id": question.id,
+                "question_id": str(question.id),
                 "question_text": question.question_text[:100] + "..." if len(question.question_text) > 100 else question.question_text,
                 "total_answers": len(answers),
                 "correct_answers": correct_count,

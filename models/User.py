@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database.connection import Base
+from sqlalchemy.dialects.postgresql import UUID
 import enum
+import uuid
 from datetime import datetime
 
 class UserRole(enum.Enum):
@@ -16,7 +18,7 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, index=True, nullable=False)
     name = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=True)  # Nullable for Google auth
@@ -28,7 +30,7 @@ class User(Base):
     google_id = Column(String(255), unique=True, nullable=True)
     
     # Student specific fields
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True)
     mascot = Column(String(50), nullable=True)  # dragon, unicorn, robot, cat, dog
     
     # Timestamps
@@ -60,13 +62,13 @@ class User(Base):
     def to_dict(self):
         """Convert user to dictionary for API responses"""
         return {
-            "id": self.id,
+            "id": str(self.id),  # convertir UUID a string para respuestas JSON
             "email": self.email,
             "name": self.name,
             "role": self.role.value,
             "is_active": self.is_active,
             "avatar_url": self.avatar_url,
-            "class_id": self.class_id,
+            "class_id": str(self.class_id) if self.class_id else None,
             "mascot": self.mascot,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None
