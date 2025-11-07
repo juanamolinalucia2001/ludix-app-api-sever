@@ -41,11 +41,6 @@ async def login(
     user_data: UserLogin,
     db: Session = Depends(get_db)
 ):
-    """
-    Authenticate user with email and password.
-    Returns JWT tokens and user information.
-    """
-    # Authenticate user
     user = auth_service.authenticate_user(db, user_data.email, user_data.password)
     if not user:
         raise HTTPException(
@@ -60,11 +55,9 @@ async def login(
             detail="User account is disabled"
         )
     
-    # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
     
-    # Create tokens
     token_data = {"sub": str(user.id), "email": user.email, "role": user.role.value}
     access_token = auth_service.create_access_token(token_data)
     refresh_token = auth_service.create_refresh_token(token_data)
@@ -81,10 +74,6 @@ async def register(
     user_data: UserRegister,
     db: Session = Depends(get_db)
 ):
-    """
-    Register a new user account.
-    """
-    # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -92,14 +81,12 @@ async def register(
             detail="Email already registered"
         )
     
-    # Validate role
     if user_data.role not in ["teacher", "student"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Role must be 'teacher' or 'student'"
         )
     
-    # Create new user
     hashed_password = auth_service.hash_password(user_data.password)
     new_user = User(
         email=user_data.email,
@@ -113,7 +100,6 @@ async def register(
     db.commit()
     db.refresh(new_user)
     
-    # Create tokens
     token_data = {"sub": str(new_user.id), "email": new_user.email, "role": new_user.role.value}
     access_token = auth_service.create_access_token(token_data)
     refresh_token = auth_service.create_refresh_token(token_data)
@@ -130,11 +116,6 @@ async def google_login(
     auth_data: GoogleAuth,
     db: Session = Depends(get_db)
 ):
-    """
-    Authenticate user with Google OAuth token.
-    """
-    # TODO: Implement Google token verification
-    # For now, we'll return a placeholder response
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Google authentication will be implemented in the next iteration"
@@ -145,10 +126,6 @@ async def refresh_access_token(
     token_data: RefreshToken,
     db: Session = Depends(get_db)
 ):
-    """
-    Refresh access token using refresh token.
-    """
-    # Verify refresh token
     payload = auth_service.verify_token(token_data.refresh_token, "refresh")
     if not payload:
         raise HTTPException(
@@ -156,16 +133,14 @@ async def refresh_access_token(
             detail="Invalid refresh token"
         )
     
-    # Get user
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == str(user_id)).first()  # <-- convertido a str
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
         )
     
-    # Create new tokens
     token_data = {"sub": str(user.id), "email": user.email, "role": user.role.value}
     access_token = auth_service.create_access_token(token_data)
     new_refresh_token = auth_service.create_refresh_token(token_data)
@@ -182,11 +157,6 @@ async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    """
-    Logout user (invalidate token on client side).
-    """
-    # In a production environment, you might want to maintain a blacklist of tokens
-    # For now, we'll just return success (client should remove the token)
     return {"message": "Successfully logged out"}
 
 @router.get("/me")
@@ -194,9 +164,6 @@ async def get_current_user_info(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    """
-    Get current authenticated user information.
-    """
     user = auth_service.get_user_from_token(db, credentials.credentials)
     if not user:
         raise HTTPException(

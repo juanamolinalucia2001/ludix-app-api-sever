@@ -16,13 +16,13 @@ class UserProfile(BaseModel):
     mascot: str = None
 
 class UserResponse(BaseModel):
-    id: int
+    id: str  # 🔹 cambiado de int a str
     email: str
     name: str
     role: str
     is_active: bool
     avatar_url: str = None
-    class_id: int = None
+    class_id: str = None  # 🔹 cambiado de int a str
     mascot: str = None
     created_at: str
 
@@ -78,7 +78,6 @@ async def get_teacher_dashboard(
 ):
     """Get teacher dashboard data"""
     
-    # Get teacher's classes and students
     from models.Quiz import Class
     from models.GameSession import GameSession
     
