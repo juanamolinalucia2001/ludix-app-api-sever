@@ -77,7 +77,7 @@ class TestFlujosPrincipales:
                 "title": "Quiz: Operaciones Básicas",
                 "description": "Preguntas sobre suma, resta y multiplicación",
                 "class_id": aula_id,
-                "difficulty": "medium",
+                "difficulty": "MEDIUM",
                 "time_limit": 300,  # 5 minutos
                 "questions": [
                     {
@@ -86,7 +86,7 @@ class TestFlujosPrincipales:
                         "options": ["40", "42", "44", "46"],
                         "correct_answer": 1,  # "42"
                         "explanation": "15 + 27 = 42",
-                        "difficulty": "easy",
+                        "difficulty": "EASY",
                         "points": 10,
                         "time_limit": 30
                     },
@@ -96,7 +96,7 @@ class TestFlujosPrincipales:
                         "options": ["54", "56", "58", "60"],
                         "correct_answer": 1,  # "56"
                         "explanation": "8 × 7 = 56",
-                        "difficulty": "medium",
+                        "difficulty": "MEDIUM",
                         "points": 15,
                         "time_limit": 45
                     },
@@ -106,7 +106,7 @@ class TestFlujosPrincipales:
                         "options": ["61", "63", "65", "67"],
                         "correct_answer": 1,  # "63"
                         "explanation": "100 - 37 = 63",
-                        "difficulty": "easy",
+                        "difficulty": "EASY",
                         "points": 10,
                         "time_limit": 30
                     }
@@ -319,7 +319,7 @@ class TestFlujosPrincipales:
                 "title": "Quiz: Desafío Matemático",
                 "description": "¿Puedes resolver estos problemas?",
                 "class_id": aula_info["id"],
-                "difficulty": "medium",
+                "difficulty": "MEDIUM",
                 "questions": [
                     {
                         "question_text": "Si tienes 12 manzanas y das 5, ¿cuántas te quedan?",
