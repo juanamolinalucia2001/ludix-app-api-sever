@@ -24,9 +24,9 @@ class SupabaseService:
         
         # Definir valores ENUM válidos según schema Supabase
         self.VALID_ROLES = ['STUDENT', 'TEACHER']
-        self.VALID_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert']
-        self.VALID_QUESTION_TYPES = ['multiple_choice', 'true_false', 'fill_in_blank', 'matching']
-        self.VALID_SESSION_STATUS = ['in_progress', 'completed', 'abandoned', 'paused']
+        self.VALID_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD']
+        self.VALID_QUESTION_TYPES = ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'FILL_IN_BLANK', 'MATCHING']
+        self.VALID_SESSION_STATUS = ['IN_PROGRESS', 'COMPLETED', 'ABANDONED', 'PAUSED']
         
         print("🔗 SupabaseService integrado con Observer Pattern")
     
@@ -233,18 +233,18 @@ class SupabaseService:
     
     def _normalize_difficulty(self, difficulty: str) -> str:
         """Normalizar dificultad a formato válido de Supabase"""
-        difficulty_lower = difficulty.lower()
-        return self._validate_enum_value(difficulty_lower, self.VALID_DIFFICULTIES, "difficulty")
+        difficulty_upper = difficulty.upper()
+        return self._validate_enum_value(difficulty_upper, self.VALID_DIFFICULTIES, "difficulty")
     
     def _normalize_question_type(self, question_type: str) -> str:
         """Normalizar tipo de pregunta a formato válido de Supabase"""
-        qtype_lower = question_type.lower()
-        return self._validate_enum_value(qtype_lower, self.VALID_QUESTION_TYPES, "question_type")
+        qtype_upper = question_type.upper()
+        return self._validate_enum_value(qtype_upper, self.VALID_QUESTION_TYPES, "question_type")
     
     def _normalize_session_status(self, status: str) -> str:
         """Normalizar estado de sesión a formato válido de Supabase"""
-        status_lower = status.lower()
-        return self._validate_enum_value(status_lower, self.VALID_SESSION_STATUS, "session_status")
+        status_upper = status.upper()
+        return self._validate_enum_value(status_upper, self.VALID_SESSION_STATUS, "session_status")
     
     # ================================
     # QUIZZES/JUEGOS
@@ -281,11 +281,11 @@ class SupabaseService:
                         "id": str(uuid.uuid4()),
                         "quiz_id": quiz_id,
                         "question_text": question.get("question_text", ""),
-                        "question_type": question.get("question_type", "multiple_choice"),
+                        "question_type": self._normalize_question_type(question.get("question_type", "multiple_choice")),
                         "options": question.get("options", []),
                         "correct_answer": question.get("correct_answer", 0),
                         "explanation": question.get("explanation"),
-                        "difficulty": question.get("difficulty", "medium"),
+                        "difficulty": self._normalize_difficulty(question.get("difficulty", "medium")),
                         "points": question.get("points", 10),
                         "time_limit": question.get("time_limit", 30),
                         "order_index": i,
@@ -444,23 +444,13 @@ class SupabaseService:
     # ================================
     
     async def create_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Crear nueva pregunta para un quiz usando Factory Pattern"""
+        """Crear nueva pregunta para un quiz - Versión simplificada sin enums"""
         try:
-            # Usar Factory Pattern para crear la pregunta
-            question_type = question_data.get("question_type", "multiple_choice")
-            
-            # Crear pregunta usando factory
-            question_obj = QuestionFactory.create_question(question_type, **question_data)
-            
-            # Convertir a formato de DB
-            question_dict = question_obj.to_dict()
-            question_dict["quiz_id"] = question_data["quiz_id"]
-            question_dict["order_index"] = question_data.get("order_index", 0)
-            
-            result = self.client.table("questions").insert(question_dict).execute()
+            # Insertar directamente sin Factory Pattern para evitar problemas con enums
+            result = self.client.table("questions").insert(question_data).execute()
             
             if result.data:
-                print(f"✅ Pregunta creada usando Factory: {question_type}")
+                print(f"✅ Pregunta creada: {question_data.get('question_text', '')[:50]}...")
                 return result.data[0]
             else:
                 raise Exception("Failed to create question")

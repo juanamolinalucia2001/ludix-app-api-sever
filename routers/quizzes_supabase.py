@@ -52,7 +52,7 @@ class QuizResponse(BaseModel):
     creator_id: str
     class_id: str
     time_limit: Optional[int]
-    difficulty: str
+    difficulty: Optional[str] = "MEDIUM"
     is_active: bool
     is_published: bool
     topic: Optional[str]
@@ -63,7 +63,7 @@ class QuizListItem(BaseModel):
     id: str
     title: str
     description: Optional[str]
-    difficulty: str
+    difficulty: Optional[str] = "MEDIUM"
     is_active: bool
     is_published: bool
     questions_count: int

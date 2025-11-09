@@ -9,7 +9,8 @@ from routers import (
     users_supabase as users, 
     games_supabase as games,
     classes_supabase as classes,
-    quizzes_supabase as quizzes
+    quizzes_supabase as quizzes,
+    init_data
 )
 from core.config import settings, ALLOWED_ORIGINS
 from services.supabase_service import supabase_service
@@ -63,6 +64,7 @@ app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(classes.router, prefix="/classes", tags=["classes"])
 app.include_router(quizzes.router, prefix="/quizzes", tags=["quizzes"])
 app.include_router(games.router, prefix="/games", tags=["games"])
+app.include_router(init_data.router, prefix="/init", tags=["initialization"])
 
 @app.get("/")
 async def root():
