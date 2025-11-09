@@ -4,21 +4,36 @@ from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
 import uvicorn
 
-# Import routers
-from routers import auth, users, classes, games, content, progress
-from database.connection import engine, Base
+# Import routers (Supabase version)
+from routers import (
+    auth_supabase as auth, 
+    users_supabase as users, 
+    games_supabase as games,
+    classes_supabase as classes,
+    quizzes_supabase as quizzes
+)
 from core.config import settings, ALLOWED_ORIGINS
+from services.supabase_service import supabase_service
 
 # Security scheme
 security = HTTPBearer()
 
-# Create database tables
+# App startup/shutdown with Supabase only
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables on startup
-    Base.metadata.create_all(bind=engine)
+    # Initialize Supabase connection on startup
+    print("🚀 Iniciando Ludix API con Supabase...")
+    try:
+        # Test Supabase connection
+        client = supabase_service.client
+        print("✅ Conexión con Supabase establecida")
+    except Exception as e:
+        print(f"⚠️ Error conectando con Supabase: {e}")
+        
     yield
+    
     # Cleanup on shutdown
+    print("🔄 Cerrando Ludix API...")
     pass
 
 # FastAPI instance with lifespan
@@ -38,13 +53,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include routers (usando solo Supabase)
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(classes.router, prefix="/classes", tags=["classes"])
+app.include_router(quizzes.router, prefix="/quizzes", tags=["quizzes"])
 app.include_router(games.router, prefix="/games", tags=["games"])
-app.include_router(content.router, prefix="/content", tags=["content"])
-app.include_router(progress.router, prefix="/progress", tags=["progress"])
 
 @app.get("/")
 async def root():
