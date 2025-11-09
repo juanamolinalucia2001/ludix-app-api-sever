@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from services.supabase_service import supabase_service
 from core.config import settings
@@ -41,7 +41,7 @@ class RefreshToken(BaseModel):
 def create_access_token(data: dict) -> str:
     """Crear JWT access token"""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire, "type": "access"})
     
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -49,7 +49,7 @@ def create_access_token(data: dict) -> str:
 def create_refresh_token(data: dict) -> str:
     """Crear JWT refresh token"""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
     
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -65,29 +65,70 @@ def verify_token(token: str) -> Optional[dict]:
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Obtener usuario actual desde token"""
     token = credentials.credentials
+    
+    # Verificar si el token tiene el formato correcto
+    if not token or len(token.split('.')) != 3:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token malformado - debe ser un JWT válido"
+        )
+    
     payload = verify_token(token)
     
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
+            detail="Token inválido o expirado - necesita login nuevamente"
         )
     
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
+            detail="Token no contiene ID de usuario válido"
         )
     
     user = await supabase_service.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
+            detail=f"Usuario con ID {user_id} no encontrado en base de datos"
+        )
+    
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario desactivado - contacte administrador"
         )
     
     return user
+
+def require_role(required_role: str):
+    """Dependency para requerir rol específico"""
+    async def role_checker(current_user: dict = Depends(get_current_user)):
+        user_role = current_user.get("role", "").upper()
+        
+        if user_role != required_role.upper():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado: Se requiere rol '{required_role}', usuario tiene rol '{user_role}'"
+            )
+        return current_user
+    return role_checker
+
+def require_any_role(allowed_roles: list):
+    """Dependency para requerir cualquiera de varios roles"""
+    async def multi_role_checker(current_user: dict = Depends(get_current_user)):
+        user_role = current_user.get("role", "").upper()
+        allowed_roles_upper = [role.upper() for role in allowed_roles]
+        
+        if user_role not in allowed_roles_upper:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado: Se requiere uno de estos roles {allowed_roles}, usuario tiene rol '{user_role}'"
+            )
+        return current_user
+    return multi_role_checker
 
 # Endpoints
 @router.post("/register", response_model=TokenResponse)

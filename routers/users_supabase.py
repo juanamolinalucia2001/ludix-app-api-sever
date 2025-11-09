@@ -71,7 +71,7 @@ async def update_user_profile(
         if profile_data.avatar_url:
             update_data["avatar_url"] = profile_data.avatar_url
             
-        if profile_data.mascot and current_user["role"] == "student":
+        if profile_data.mascot and current_user["role"].upper() == "STUDENT":
             update_data["mascot"] = profile_data.mascot
         
         # Actualizar usuario en Supabase
@@ -122,7 +122,7 @@ async def setup_initial_profile(
         }
         
         # Solo estudiantes pueden tener mascota
-        if current_user["role"] == "student" and profile_data.mascot:
+        if current_user["role"].upper() == "STUDENT" and profile_data.mascot:
             update_data["mascot"] = profile_data.mascot
         
         # Actualizar usuario en Supabase

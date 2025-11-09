@@ -77,7 +77,7 @@ async def create_quiz(
 ):
     """Crear nuevo quiz con preguntas (solo docentes)"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can create quizzes"
@@ -131,10 +131,10 @@ async def get_class_quizzes(
     """Obtener quizzes de una clase"""
     try:
         # Verificar acceso
-        if current_user["role"] == "teacher":
+        if current_user["role"].upper() == "TEACHER":
             # Los docentes pueden ver todos sus quizzes
             quizzes = await supabase_service.get_class_quizzes(class_id)
-        elif current_user["role"] == "student":
+        elif current_user["role"].upper() == "STUDENT":
             # Los estudiantes solo ven quizzes publicados
             if current_user.get("class_id") != class_id:
                 raise HTTPException(
@@ -195,7 +195,7 @@ async def get_quiz(
             )
         
         # Verificar acceso
-        if current_user["role"] == "student":
+        if current_user["role"].upper() == "STUDENT":
             if not quiz.get("is_published", False):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -211,7 +211,7 @@ async def get_quiz(
         questions = await supabase_service.get_quiz_questions(quiz_id)
         
         # Si es estudiante, no mostrar respuestas correctas
-        if current_user["role"] == "student":
+        if current_user["role"].upper() == "STUDENT":
             for question in questions:
                 question.pop("correct_answer", None)
                 question.pop("explanation", None)
@@ -236,7 +236,7 @@ async def publish_quiz(
 ):
     """Publicar quiz (solo docentes)"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can publish quizzes"
@@ -272,7 +272,7 @@ async def delete_quiz(
 ):
     """Eliminar quiz (solo docentes)"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can delete quizzes"

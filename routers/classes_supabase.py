@@ -1,6 +1,14 @@
 """
 Router de clases usando exclusivamente Supabase
-Para docentes: crear aulas, ver estudiantes, estadísticas
+Para docentes: crear aulas, ver        if current_user["role"].upper() != "TEACHER":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                      if current_user["role"].upper() != "STUDENT":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only students can join classes"
+            )ail="Only teachers can create classes"
+            )diantes, estadísticas
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +16,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from services.supabase_service import supabase_service
-from routers.auth_supabase import get_current_user
+from routers.auth_supabase import get_current_user, require_role, require_any_role
 
 router = APIRouter()
 
@@ -56,15 +64,10 @@ class JoinClassRequest(BaseModel):
 @router.post("/", response_model=ClassResponse)
 async def create_class(
     class_data: ClassCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_role("teacher"))
 ):
     """Crear nueva clase (solo docentes)"""
     try:
-        if current_user["role"] != "teacher":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only teachers can create classes"
-            )
         
         new_class = await supabase_service.create_class(
             name=class_data.name,
@@ -86,7 +89,7 @@ async def create_class(
 async def get_my_classes(current_user: dict = Depends(get_current_user)):
     """Obtener clases del docente actual"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can access their classes"
@@ -110,7 +113,7 @@ async def get_class_students(
 ):
     """Obtener estudiantes de una clase"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can view class students"
@@ -145,7 +148,7 @@ async def get_class_statistics(
 ):
     """Obtener estadísticas de una clase"""
     try:
-        if current_user["role"] != "teacher":
+        if current_user["role"].upper() != "TEACHER":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers can view class statistics"
@@ -214,15 +217,10 @@ async def get_class_results(
 @router.post("/join", response_model=dict)
 async def join_class(
     join_data: JoinClassRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_role("student"))
 ):
     """Unirse a una clase por código (solo estudiantes)"""
     try:
-        if current_user["role"] != "student":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only students can join classes"
-            )
         
         result = await supabase_service.join_class_by_code(
             student_id=current_user["id"],

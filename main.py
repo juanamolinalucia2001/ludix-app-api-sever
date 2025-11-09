@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
 import uvicorn
 
@@ -15,8 +14,7 @@ from routers import (
 from core.config import settings, ALLOWED_ORIGINS
 from services.supabase_service import supabase_service
 
-# Security scheme
-security = HTTPBearer()
+# Security scheme se maneja en cada router
 
 # App startup/shutdown with Supabase only
 @asynccontextmanager
@@ -27,6 +25,12 @@ async def lifespan(app: FastAPI):
         # Test Supabase connection
         client = supabase_service.client
         print("✅ Conexión con Supabase establecida")
+        
+        # Inicializar sistema Observer Pattern
+        from patterns.observer_system import initialize_observer_system
+        event_manager = initialize_observer_system()
+        print("✅ Sistema Observer Pattern inicializado")
+        
     except Exception as e:
         print(f"⚠️ Error conectando con Supabase: {e}")
         

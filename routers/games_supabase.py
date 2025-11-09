@@ -48,7 +48,7 @@ async def get_available_games(current_user: dict = Depends(get_current_user)):
     """Get available games/quizzes for the current student"""
     try:
         # Verificar que el usuario sea estudiante
-        if current_user["role"] != "student":
+        if current_user["role"].upper() != "STUDENT":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only students can access games"
@@ -95,7 +95,7 @@ async def create_game_session(
     """Create a new game session for a quiz"""
     try:
         # Verificar que el usuario sea estudiante
-        if current_user["role"] != "student":
+        if current_user["role"].upper() != "STUDENT":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only students can create game sessions"
@@ -279,7 +279,7 @@ async def submit_answer(
 async def get_student_sessions(current_user: dict = Depends(get_current_user)):
     """Get all game sessions for the current student"""
     try:
-        if current_user["role"] != "student":
+        if current_user["role"].upper() != "STUDENT":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only students can access game sessions"
