@@ -1,103 +1,238 @@
-import pytest
-from httpx import AsyncClient
-from main import app
-from services.supabase_service import supabase_service
+# tests/tests_fix/conftest.py
 import asyncio
 import uuid
+import pytest
+from httpx import AsyncClient
 
+# Importa la app FastAPI principal
+# (asegurate que main.py exponga `app`)
+from main import app
+
+
+# =============== #
+# Infraestructura #
+# =============== #
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Crea un bucle de eventos para toda la sesión de tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    """
+    Event loop para tests async de sesión completa.
+    Evita conflictos de pytest-asyncio en CI.
+    """
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def client():
-    """Cliente HTTP asíncrono para testear FastAPI."""
+    """
+    Cliente HTTP asíncrono apuntando a la app FastAPI.
+    """
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
 
 
-@pytest.fixture
-def teacher_headers():
-    """Headers simulados de un docente autenticado."""
-    return {
-        "Authorization": "Bearer fake_teacher_token",
-        "role": "TEACHER",
-        "id": str(uuid.uuid4())
-    }
+# =========================== #
+# Helpers para auth de pruebas#
+# =========================== #
 
+async def _register_user(client: AsyncClient, *, role: str, name: str | None = None):
+    """
+    Registra un usuario de prueba y devuelve headers con Bearer.
+    Ajustá las rutas/campos si tu backend usa otra estructura.
+    """
+    # Genera un mail único por ejecución
+    email = f"test_{role}_{uuid.uuid4().hex[:8]}@example.com"
+    password = "TestPass123!"
+    name = name or (f"{role.capitalize()} Test")
 
-@pytest.fixture
-def student_headers():
-    """Headers simulados de un estudiante autenticado."""
-    return {
-        "Authorization": "Bearer fake_student_token",
-        "role": "STUDENT",
-        "id": str(uuid.uuid4()),
-        "class_id": str(uuid.uuid4())
-    }
+    # Intenta registrar (ajustá la ruta si tu proyecto usa /auth/register o similar)
+    # Rutas alternativas típicas:
+    #   - /users/register
+    #   - /auth/register
+    #   - /users/supabase/register (si tu proyecto lo define)
+    resp = await client.post(
+        "/users/register",
+        json={
+            "name": name,
+            "email": email,
+            "password": password,
+            "role": role.upper()
+        },
+    )
 
-
-@pytest.fixture
-async def make_class(client):
-    """Crea una clase simulada vía API."""
-    async def _make_class(headers, name="Clase Test"):
-        response = await client.post(
-            "/classes/",
-            json={"name": name, "grade": "5A"},
-            headers=headers
-        )
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"id": str(uuid.uuid4()), "name": name, "class_code": "TEST123"}
-    return _make_class
-
-
-@pytest.fixture
-async def make_quiz(client):
-    """Crea un quiz de prueba."""
-    async def _make_quiz(headers, class_id, title="Quiz Test"):
-        response = await client.post(
-            "/quizzes/",
+    # Si tu proyecto usa otra ruta, probamos fallback común:
+    if resp.status_code >= 400:
+        resp = await client.post(
+            "/auth/register",
             json={
-                "title": title,
-                "description": "Quiz generado para test",
-                "class_id": class_id,
-                "questions": [
-                    {
-                        "question_text": "¿Cuánto es 2 + 2?",
-                        "question_type": "multiple_choice",
-                        "options": ["2", "3", "4", "5"],
-                        "correct_answer": 2,
-                        "points": 10
-                    }
-                ]
+                "name": name,
+                "email": email,
+                "password": password,
+                "role": role.upper()
             },
-            headers=headers
         )
-        return response
-    return _make_quiz
+
+    resp.raise_for_status()
+    data = resp.json()
+
+    # Extrae token (ajustá según el payload real que devuelve tu backend)
+    # Convenciones comunes: "access_token", "token", o dentro de "data"
+    token = (
+        data.get("access_token")
+        or data.get("token")
+        or (data.get("data", {}) or {}).get("access_token")
+    )
+    if not token:
+        # Último intento: muchos endpoints devuelven { "user": {...}, "session": {"access_token": "..."} }
+        session = data.get("session") or {}
+        token = session.get("access_token")
+
+    assert token, f"No se pudo obtener access_token del registro: {data}"
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    # Intenta recuperar el id/role desde la respuesta para ayudar a los tests
+    user_id = (data.get("user") or {}).get("id") or data.get("id")
+    role_out = (data.get("user") or {}).get("role") or role.upper()
+
+    return {
+        "headers": headers,
+        "id": user_id,
+        "role": role_out
+    }
+
+
+# ============================ #
+# Fixtures de alto nivel (OK)  #
+# ============================ #
+
+@pytest.fixture
+async def teacher_headers(client):
+    """
+    Devuelve headers (Bearer ...) para un docente de pruebas.
+    Además incluye 'id' y 'role' por conveniencia.
+    """
+    info = await _register_user(client, role="teacher", name="Teacher Pytest")
+    # Por compatibilidad con tests que acceden a 'teacher_headers' directamente:
+    headers = dict(info["headers"])
+    headers["id"] = info.get("id")
+    headers["role"] = "TEACHER"
+    return headers
+
+
+# ============================ #
+# Factory fixtures asíncronos  #
+# ============================ #
+
+@pytest.fixture
+def make_class(client: AsyncClient):
+    """
+    Factory async: crea un aula.
+    Uso en test:
+        aula = await make_class(teacher_headers, name="Game Lab")
+    Debe devolver dict con 'id' y 'class_code'.
+    """
+    async def _factory(headers: dict, *, name: str = "Aula de Prueba", description: str = ""):
+        resp = await client.post(
+            "/classes",
+            headers=headers,
+            json={"name": name, "description": description}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Aseguramos claves esperadas por tests
+        assert "id" in data and "class_code" in data, f"Respuesta inesperada al crear clase: {data}"
+        return data
+    return _factory
 
 
 @pytest.fixture
-async def make_student():
-    """Crea un estudiante simulado."""
-    async def _make_student(name="Estudiante Test", avatar="/avatars/default.png", mascot="loro"):
-        student_id = str(uuid.uuid4())
+def make_quiz(client: AsyncClient):
+    """
+    Factory async: crea un quiz mínimo válido.
+    Uso en test:
+        qr = await make_quiz(headers=teacher_headers, class_id=aula["id"], title="Desafío")
+        if qr.status_code == 200: quiz = qr.json()
+    Devuelve el httpx.Response (los tests usan .status_code y .json()).
+    """
+    async def _factory(
+        headers: dict, *,
+        class_id: str,
+        title: str = "Quiz de Prueba",
+        description: str | None = None,
+        questions: list[dict] | None = None
+    ):
+        # Preguntas por defecto (válidas contra tus enums mayúscula/minúscula)
+        default_questions = [
+            {
+                "question_text": "¿Cuánto es 15 + 27?",
+                "question_type": "multiple_choice",   # Python-side; el router mapea a ENUM MAYÚSCULAS
+                "options": ["32", "42", "40", "38"],
+                "correct_answer": 1,
+                "difficulty": "medium",
+                "points": 10,
+                "time_limit": 30,
+            },
+            {
+                "question_text": "¿Cuánto es 8 × 7?",
+                "question_type": "multiple_choice",
+                "options": ["54", "56", "64", "48"],
+                "correct_answer": 1,
+                "difficulty": "easy",
+                "points": 10,
+                "time_limit": 30,
+            },
+        ]
+        payload = {
+            "title": title,
+            "description": description or "",
+            "class_id": class_id,
+            "difficulty": "medium",
+            "time_limit": None,
+            "topic": None,
+            "questions": questions or default_questions,
+        }
+        resp = await client.post("/quizzes", headers=headers, json=payload)
+        # NO levantamos excepción aquí porque los tests chequean el status y hacen skip si falla.
+        return resp
+    return _factory
+
+
+@pytest.fixture
+def make_student(client: AsyncClient):
+    """
+    Factory async: registra un estudiante y devuelve un diccionario
+    con 'headers' listo para usar (Authorization Bearer) y metadatos útiles.
+    Uso en test:
+        gamer = await make_student(name="Alex", avatar="/a.png", mascot="dino")
+        await client.post("/classes/join", json={"class_code": ...}, headers=gamer["headers"])
+    """
+    async def _factory(*, name: str = "Alumno Pytest", avatar: str | None = None, mascot: str | None = None):
+        info = await _register_user(client, role="student", name=name)
+
+        # Si tu backend soporta update de perfil, podés setear avatar/mascot acá.
+        # Ejemplo (silencioso si no existe):
+        try:
+            if avatar or mascot:
+                await client.put(
+                    "/users/profile",
+                    headers=info["headers"],
+                    json={"avatar": avatar, "mascot": mascot}
+                )
+        except Exception:
+            # Ignoramos si el endpoint no existe
+            pass
+
         return {
-            "id": student_id,
+            "headers": info["headers"],
+            "id": info.get("id"),
+            "role": "STUDENT",
             "name": name,
             "avatar": avatar,
             "mascot": mascot,
-            "headers": {
-                "Authorization": f"Bearer fake_token_{student_id}",
-                "role": "STUDENT",
-                "id": student_id
-            }
         }
-    return _make_student
+    return _factory
