@@ -44,7 +44,9 @@ jobs:
       run: python diagnose_enums.py
 
     # Ejecutar los tests automatizados
-    - name: Run pytest tests
+    - name: Run pytest
       run: |
-        pytest test_api.py
-        pytest test_quiz_creation.py
+        pytest tests \
+          --maxfail=1 \
+          --disable-warnings \
+          --tb=short
