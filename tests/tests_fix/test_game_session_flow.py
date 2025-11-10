@@ -5,7 +5,7 @@ import pytest
 async def test_game_session_completa(client, teacher_headers, make_class, make_quiz, make_student):
     # Preparación: aula + quiz
     aula = await make_class(teacher_headers, name="Game Lab")
-    qr = await make_quiz(client, headers=teacher_headers, class_id=aula["id"], title="Desafío Matemático")
+    qr = await make_quiz(headers=teacher_headers, class_id=aula["id"], title="Desafío Matemático")
     if qr.status_code != 200:
         pytest.skip("No se pudo crear el quiz (endpoint en desarrollo)")
     quiz = qr.json()
