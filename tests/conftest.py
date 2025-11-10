@@ -86,7 +86,7 @@ def make_quiz(client):
             "questions": [
                 {
                     "question_text": "¿Cuánto es 15 + 27?",
-                    "question_type": "multiple_choice",
+                    "question_type": "MULTIPLE_CHOICE",
                     "options": ["40", "42", "44", "46"],
                     "correct_answer": 1,
                     "explanation": "15 + 27 = 42",
@@ -96,7 +96,7 @@ def make_quiz(client):
                 },
                 {
                     "question_text": "¿Cuánto es 8 × 7?",
-                    "question_type": "multiple_choice",
+                    "question_type": "MULTIPLE_CHOICE",
                     "options": ["54", "56", "58", "60"],
                     "correct_answer": 1,
                     "explanation": "8 × 7 = 56",
