@@ -24,9 +24,27 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run tests
+    # Iniciar el servidor FastAPI (modo background)
+    - name: Start FastAPI server
       run: |
-        pytest setup_test_data.py
+        nohup uvicorn main:app --host 0.0.0.0 --port 8001 &
+      env:
+        PYTHONPATH: .
+
+    # Esperar unos segundos para que el servidor arranque
+    - name: Wait for API to start
+      run: sleep 5
+
+    # Crear datos de prueba
+    - name: Create test data
+      run: python setup_test_data.py
+
+    # Ejecutar diagnóstico de enums (no es un test pytest)
+    - name: Diagnose enums
+      run: python diagnose_enums.py
+
+    # Ejecutar los tests automatizados
+    - name: Run pytest tests
+      run: |
         pytest test_api.py
         pytest test_quiz_creation.py
-        pytest diagnose_enums.py
