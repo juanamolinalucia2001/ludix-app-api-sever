@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 
 # Importa la app FastAPI principal
@@ -13,7 +14,7 @@ from main import app
 # Infraestructura #
 # =============== #
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 def event_loop():
     """
     Event loop para tests async de sesión completa.
@@ -24,7 +25,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     """
     Cliente HTTP asíncrono apuntando a la app FastAPI.
@@ -48,10 +49,6 @@ async def _register_user(client: AsyncClient, *, role: str, name: str | None = N
     name = name or (f"{role.capitalize()} Test")
 
     # Intenta registrar (ajustá la ruta si tu proyecto usa /auth/register o similar)
-    # Rutas alternativas típicas:
-    #   - /users/register
-    #   - /auth/register
-    #   - /users/supabase/register (si tu proyecto lo define)
     resp = await client.post(
         "/users/register",
         json={
@@ -62,7 +59,7 @@ async def _register_user(client: AsyncClient, *, role: str, name: str | None = N
         },
     )
 
-    # Si tu proyecto usa otra ruta, probamos fallback común:
+    # Fallback común si tu proyecto usa otra ruta
     if resp.status_code >= 400:
         resp = await client.post(
             "/auth/register",
@@ -77,15 +74,13 @@ async def _register_user(client: AsyncClient, *, role: str, name: str | None = N
     resp.raise_for_status()
     data = resp.json()
 
-    # Extrae token (ajustá según el payload real que devuelve tu backend)
-    # Convenciones comunes: "access_token", "token", o dentro de "data"
+    # Extrae token (ajustá según el payload real)
     token = (
         data.get("access_token")
         or data.get("token")
         or (data.get("data", {}) or {}).get("access_token")
     )
     if not token:
-        # Último intento: muchos endpoints devuelven { "user": {...}, "session": {"access_token": "..."} }
         session = data.get("session") or {}
         token = session.get("access_token")
 
@@ -95,7 +90,7 @@ async def _register_user(client: AsyncClient, *, role: str, name: str | None = N
         "Authorization": f"Bearer {token}"
     }
 
-    # Intenta recuperar el id/role desde la respuesta para ayudar a los tests
+    # Intenta recuperar id/role desde la respuesta
     user_id = (data.get("user") or {}).get("id") or data.get("id")
     role_out = (data.get("user") or {}).get("role") or role.upper()
 
@@ -110,14 +105,13 @@ async def _register_user(client: AsyncClient, *, role: str, name: str | None = N
 # Fixtures de alto nivel (OK)  #
 # ============================ #
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def teacher_headers(client):
     """
     Devuelve headers (Bearer ...) para un docente de pruebas.
     Además incluye 'id' y 'role' por conveniencia.
     """
     info = await _register_user(client, role="teacher", name="Teacher Pytest")
-    # Por compatibilidad con tests que acceden a 'teacher_headers' directamente:
     headers = dict(info["headers"])
     headers["id"] = info.get("id")
     headers["role"] = "TEACHER"
@@ -144,7 +138,6 @@ def make_class(client: AsyncClient):
         )
         resp.raise_for_status()
         data = resp.json()
-        # Aseguramos claves esperadas por tests
         assert "id" in data and "class_code" in data, f"Respuesta inesperada al crear clase: {data}"
         return data
     return _factory
@@ -155,8 +148,8 @@ def make_quiz(client: AsyncClient):
     """
     Factory async: crea un quiz mínimo válido.
     Uso en test:
-        qr = await make_quiz(headers=teacher_headers, class_id=aula["id"], title="Desafío")
-        if qr.status_code == 200: quiz = qr.json()
+        resp = await make_quiz(headers=teacher_headers, class_id=aula["id"], title="Desafío")
+        if resp.status_code == 200: quiz = resp.json()
     Devuelve el httpx.Response (los tests usan .status_code y .json()).
     """
     async def _factory(
@@ -166,11 +159,10 @@ def make_quiz(client: AsyncClient):
         description: str | None = None,
         questions: list[dict] | None = None
     ):
-        # Preguntas por defecto (válidas contra tus enums mayúscula/minúscula)
         default_questions = [
             {
                 "question_text": "¿Cuánto es 15 + 27?",
-                "question_type": "multiple_choice",   # Python-side; el router mapea a ENUM MAYÚSCULAS
+                "question_type": "multiple_choice",
                 "options": ["32", "42", "40", "38"],
                 "correct_answer": 1,
                 "difficulty": "medium",
@@ -197,7 +189,6 @@ def make_quiz(client: AsyncClient):
             "questions": questions or default_questions,
         }
         resp = await client.post("/quizzes", headers=headers, json=payload)
-        # NO levantamos excepción aquí porque los tests chequean el status y hacen skip si falla.
         return resp
     return _factory
 
@@ -213,9 +204,6 @@ def make_student(client: AsyncClient):
     """
     async def _factory(*, name: str = "Alumno Pytest", avatar: str | None = None, mascot: str | None = None):
         info = await _register_user(client, role="student", name=name)
-
-        # Si tu backend soporta update de perfil, podés setear avatar/mascot acá.
-        # Ejemplo (silencioso si no existe):
         try:
             if avatar or mascot:
                 await client.put(
@@ -224,7 +212,6 @@ def make_student(client: AsyncClient):
                     json={"avatar": avatar, "mascot": mascot}
                 )
         except Exception:
-            # Ignoramos si el endpoint no existe
             pass
 
         return {
