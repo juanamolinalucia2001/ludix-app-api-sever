@@ -35,7 +35,7 @@ async def teacher_headers(client, uniq_email):
     return {"Authorization": f"Bearer {tok}"}
 
 @pytest.fixture
-async def make_student(client, uniq_email):
+def make_student(client, uniq_email):
     async def _factory(name="Estudiante", avatar="/avatars/a1.png", mascot="gato"):
         payload = {
             "email": uniq_email("student", "estudiante.com"),
@@ -59,7 +59,7 @@ async def make_student(client, uniq_email):
     return _factory
 
 @pytest.fixture
-async def make_class(client):
+def make_class(client):
     async def _factory(headers, name="Aula de Prueba", description="Aula demo", max_students=30):
         r = await client.post("/classes/", json={
             "name": name, "description": description, "max_students": max_students
@@ -69,7 +69,7 @@ async def make_class(client):
     return _factory
 
 @pytest.fixture
-async def make_quiz(client):
+def make_quiz(client):
     async def _factory(headers, class_id, title="Quiz Demo", description="desc", difficulty="MEDIUM"):
         r = await client.post("/quizzes/", json={
             "title": title,
