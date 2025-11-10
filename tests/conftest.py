@@ -1,15 +1,16 @@
 import os
 import uuid
 import pytest
+import pytest_asyncio  # IMPORTANTE: Necesitas importar esto
 import httpx
-from typing import Dict
 from main import app
 
 
-@pytest.fixture
+# Usar @pytest_asyncio.fixture para fixtures asíncronas
+@pytest_asyncio.fixture
 async def client():
-    """Cliente HTTP asíncrono para los tests."""
-    async with httpx.AsyncClient(app=app, base_url="http://test") as c:
+    # Se recomienda usar una base_url válida si es posible, aunque http://test suele funcionar con httpx + app ASGI
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
 
@@ -20,27 +21,26 @@ def uniq_email():
     return _make
 
 
-@pytest.fixture
+# Esta fixture necesita ser asíncrona porque usa 'await client.post'
+@pytest_asyncio.fixture
 async def teacher_headers(client, uniq_email):
-    """Registra un docente y devuelve headers con Bearer token."""
+    """Registra un docente y devuelve headers con Bearer."""
     payload = {
         "email": uniq_email("teacher"),
         "password": "DocenteSeguro2024!",
         "name": "Prof. Test",
         "role": "teacher",
     }
+    # Al ser una @pytest_asyncio.fixture, pytest esperará (await) esto automáticamente
     r = await client.post("/auth/register", json=payload)
-    assert r.status_code in (200, 201), r.text
-    data = r.json()
-    token = data.get("access_token") or data.get("token")
-    assert token, "No se recibió token en el registro/login"
-    return {"Authorization": f"Bearer {token}"}
+    assert r.status_code == 200, r.text
+    tok = r.json()["access_token"]
+    return {"Authorization": f"Bearer {tok}"}
 
 
-# 👇 Estas tres se vuelven async fixtures (para que el client sea awaitable)
+# Las factories pueden seguir siendo síncronas y devolver funciones asíncronas
 @pytest.fixture
-async def make_student(client, uniq_email):
-    """Crea un estudiante con perfil listo."""
+def make_student(client, uniq_email):
     async def _factory(name="Estudiante", avatar="/avatars/a1.png", mascot="gato"):
         payload = {
             "email": uniq_email("student", "estudiante.com"),
@@ -49,38 +49,34 @@ async def make_student(client, uniq_email):
             "role": "student",
         }
         r = await client.post("/auth/register", json=payload)
-        assert r.status_code in (200, 201), r.text
+        assert r.status_code == 200, r.text
         data = r.json()
-        token = data.get("access_token") or data.get("token")
+        token = data["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
+        # setup perfil
         prof = await client.post("/users/setup-profile", json={
             "name": name, "avatar_url": avatar, "mascot": mascot
         }, headers=headers)
-        assert prof.status_code in (200, 201), prof.text
+        assert prof.status_code == 200, prof.text
 
-        return {"user": data.get("user"), "headers": headers}
-
+        return {"user": data["user"], "headers": headers}
     return _factory
 
 
 @pytest.fixture
-async def make_class(client):
-    """Crea una clase con los datos dados."""
+def make_class(client):
     async def _factory(headers, name="Aula de Prueba", description="Aula demo", max_students=30):
         r = await client.post("/classes/", json={
-            "name": name,
-            "description": description,
-            "max_students": max_students
+            "name": name, "description": description, "max_students": max_students
         }, headers=headers)
-        assert r.status_code in (200, 201), r.text
+        assert r.status_code == 200, r.text
         return r.json()
     return _factory
 
 
 @pytest.fixture
-async def make_quiz(client):
-    """Crea un quiz con preguntas de prueba."""
+def make_quiz(client):
     async def _factory(headers, class_id, title="Quiz Demo", description="desc", difficulty="MEDIUM"):
         r = await client.post("/quizzes/", json={
             "title": title,

@@ -8,7 +8,7 @@ async def test_docente_crea_aula_y_quiz(client, teacher_headers, make_class, mak
     assert "id" in aula and "class_code" in aula
 
     # Crear quiz
-    qr = await make_quiz( client, headers=teacher_headers, class_id=aula["id"],
+    qr = await make_quiz(headers=teacher_headers, class_id=aula["id"],
                           title="Operaciones Básicas" )
     assert qr.status_code in (200, 201), qr.text
     quiz = qr.json()
