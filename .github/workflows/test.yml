@@ -35,14 +35,6 @@ jobs:
     - name: Wait for API to start
       run: sleep 5
 
-    # Crear datos de prueba
-    - name: Create test data
-      run: python setup_test_data.py
-
-    # Ejecutar diagnóstico de enums (no es un test pytest)
-    - name: Diagnose enums
-      run: python diagnose_enums.py
-
     # Ejecutar los tests automatizados
     - name: Run pytest
       run: |
