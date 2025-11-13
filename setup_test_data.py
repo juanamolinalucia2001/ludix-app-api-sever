@@ -31,8 +31,8 @@ def create_test_user():
             print(f"   Email: {result.get('user', {}).get('email')}")
             print(f"   Rol: {result.get('user', {}).get('role')}")
             return result.get('user')
+
         elif response.status_code == 200:
-            # El usuario ya existe y se logeó automáticamente
             result = response.json()
             print("✅ Usuario ya existe (auto-login exitoso)!")
             user_info = result.get('user', {})
@@ -41,10 +41,15 @@ def create_test_user():
             print(f"   Email: {user_info.get('email')}")
             print(f"   Rol: {user_info.get('role')}")
             return user_info
+
+        elif response.status_code == 400 and "already" in response.text.lower():
+            print("⚠️ Usuario ya registrado, continuando con login...")
+            return {"email": user_data["email"]}
+
         else:
             print(f"❌ Error creando usuario: {response.text}")
             return None
-            
+                    
     except Exception as e:
         print(f"❌ Error: {e}")
         return None
@@ -64,7 +69,7 @@ def create_test_class(token):
         response = requests.post(f"{BASE_URL}/classes", json=class_data, headers=headers)
         print(f"Status: {response.status_code}")
         
-        if response.status_code == 201:
+        if response.status_code in (200, 201):
             result = response.json()
             print("✅ Clase creada exitosamente!")
             print(f"   Nombre: {result.get('name')}")
