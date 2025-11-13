@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop, fix/refactor_test ]
+  pull_request:
+    branches: [ main, develop, fix/refactor_test ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    # Iniciar el servidor FastAPI (modo background)
+    - name: Start FastAPI server
+      run: |
+        nohup uvicorn main:app --host 0.0.0.0 --port 8001 &
+      env:
+        PYTHONPATH: .
+
+    # Esperar unos segundos para que el servidor arranque
+    - name: Wait for API to start
+      run: sleep 5
+
+    # Crear datos de prueba
+    - name: Create test data
+      run: python setup_test_data.py
+
+    # Ejecutar diagnóstico de enums (no es un test pytest)
+    - name: Diagnose enums
+      run: python diagnose_enums.py
+
+    # Ejecutar los tests automatizados
+    - name: Run pytest
+      run: |
+        pytest -q --maxfail=1
